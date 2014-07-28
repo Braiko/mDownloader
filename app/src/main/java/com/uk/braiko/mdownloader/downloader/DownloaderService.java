@@ -251,4 +251,8 @@ public class DownloaderService extends Service {
 
         return new File(file, fileName).getAbsolutePath();
     }
+
+
+    private class TrackLoader extends Thread {
+    }
 }

@@ -2,13 +2,11 @@ package com.uk.braiko.mdownloader;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.view.View;
-import android.widget.ListAdapter;
 
-import com.uk.braiko.mdownloader.downloader.DownloaderService;
-import com.uk.braiko.mdownloader.downloader.MovieDownloadManager;
+import com.uk.braiko.mdownloader.my_loader.MovieDownloaderManager;
+import com.uk.braiko.mdownloader.my_loader.logger.L;
+import com.uk.braiko.mdownloader.my_loader.logger.logTag;
 
 import java.util.ArrayList;
 
@@ -21,7 +19,8 @@ public class MyActivity extends Activity {
 
     private CardListView list;
     private CardArrayAdapter listAdapter;
-    ArrayList<String > moves = new ArrayList<String>();
+    ArrayList<String> moves = new ArrayList<String>();
+    int lastShown = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,16 +55,22 @@ public class MyActivity extends Activity {
         findViewById(R.id.add_btn).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                L.info("add btn press", logTag.debug_and_test);
+                if (moves.size() <= lastShown)
+                    return;
                 DownloadEpisode episode = new DownloadEpisode();
-
-                (new MovieDownloadManager(MyActivity.this)).add(episode);
+                episode.setFull_path(moves.get(lastShown));
+                episode.setEpisode_id(lastShown*7);
+                lastShown++;
+                listAdapter.add(new testCard(MyActivity.this,episode));
+                MovieDownloaderManager.with(MyActivity.this).by(episode).load();
             }
         });
     }
 
     private void InitList() {
-        this.list = (CardListView)findViewById(R.id.list);
-        listAdapter = new CardArrayAdapter(this,new ArrayList<Card>());
+        this.list = (CardListView) findViewById(R.id.list);
+        listAdapter = new CardArrayAdapter(this, new ArrayList<Card>());
         list.setAdapter(this.listAdapter);
     }
 }
