@@ -59,7 +59,7 @@ public class MyActivity extends Activity {
                 if (moves.size() <= lastShown)
                     return;
                 DownloadEpisode episode = new DownloadEpisode();
-                episode.setFull_path(moves.get(lastShown));
+                episode.setLink(moves.get(lastShown));
                 episode.setEpisode_id(lastShown*7);
                 lastShown++;
                 listAdapter.add(new testCard(MyActivity.this,episode));
