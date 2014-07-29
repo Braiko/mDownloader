@@ -20,7 +20,7 @@ public class MovieDownloaderManagerForEpisode implements IMovieDownloadListener{
         this.episode = episode;
     }
 
-    public MovieDownloaderManagerForEpisode listenedBy(IMovieDownloadListener listener){
+    public MovieDownloaderManagerForEpisode listened(IMovieDownloadListener listener){
         this.listener = listener;
         return this;
     }
@@ -65,37 +65,37 @@ public class MovieDownloaderManagerForEpisode implements IMovieDownloadListener{
 
     @Override
     public void onProgress(DownloadEpisode downloadItem) {
-
+    listener.onProgress(downloadItem);
     }
 
     @Override
     public void onPauseMovie(DownloadEpisode downloadItem) {
-
+        listener.onPauseMovie(downloadItem);
     }
 
     @Override
     public void onResumeMovie(DownloadEpisode downloadItem) {
-
+        listener.onResumeMovie(downloadItem);
     }
 
     @Override
     public void onFinishMovie(DownloadEpisode downloadItem) {
-
+        listener.onFinishMovie(downloadItem);
     }
 
     @Override
     public void onStartMovie(DownloadEpisode downloadItem) {
-
+        listener.onStartMovie(downloadItem);
     }
 
     @Override
     public void onFinishAll() {
-
+        listener.onFinishAll();
     }
 
     @Override
     public void onStatus(DownloadEpisode downloadItem) {
-
+        listener.onStatus(downloadItem);
     }
 
 }

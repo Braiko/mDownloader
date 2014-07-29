@@ -26,15 +26,17 @@ import static com.uk.braiko.mdownloader.my_loader.DownloaderService.renameMovie;
  */
 public class LoadMovieThread extends Thread {
     private volatile boolean isFree = true;
-    private IOnCompliteTaskListener listener;
+    private IOnCompliteTaskListener compliteListener;
     private DownloaderService.Task task;
     private IMovieDownloadListener onStateChange;
     private volatile boolean isBreakDownloading = false;
     private volatile boolean isSleep = false;
     private Context context;
+    private IMovieDownloadListener downloadListener;
 
-    public LoadMovieThread(Context context) {
+    public LoadMovieThread(Context context,IMovieDownloadListener downloadListener) {
         this.context = context;
+        this.downloadListener = downloadListener;
         this.start();
     }
 
@@ -51,7 +53,7 @@ public class LoadMovieThread extends Thread {
     }
 
     public void setOnCompliteTask(IOnCompliteTaskListener listener) {
-        this.listener = listener;
+        this.compliteListener = listener;
     }
 
     public DownloaderService.Task getTask() {
@@ -80,6 +82,8 @@ public class LoadMovieThread extends Thread {
                 continue;
             }
             ProccessTask();
+            isFree = true;
+            compliteListener.onComplite();
         }
     }
 
@@ -126,6 +130,7 @@ public class LoadMovieThread extends Thread {
             try {
                 in = new BufferedInputStream(connection.getInputStream());
             } catch (FileNotFoundException e) {
+                L.error("link need refresh",e,logTag.dowloader_sevice);
                 refreshLink(episode);
                 url = new URL(episode.getLink());
                 connection = (HttpURLConnection) url.openConnection();
@@ -147,16 +152,15 @@ public class LoadMovieThread extends Thread {
                 bout.write(data, 0, x);
                 downloadPosition += x;
                 episode.setProgress(downloadPosition);
-
                 percent = (int) (((double) downloadPosition / (double) episode.getFile_size()) * 100);
-
+                L.info("receive " + x + " byte of doanloaded file ( "+percent+" %)", logTag.dowloader_sevice);
                 episode.setPercent(percent);
-
                 if (episode.isNeed_delete()) {
                     try {
                         File file = new File(episode.getFull_path());
                         file.delete();
                     } catch (Exception e) {
+                        L.error("cnan`t delete file when downloaded",e,logTag.dowloader_sevice);
                     }
                     new Delete().from(DownloadEpisode.class).where("episode_id=" + episode.getEpisode_id()).executeSingle();
                     return;
@@ -168,20 +172,12 @@ public class LoadMovieThread extends Thread {
                     episode.setProgress(downloadPosition);
                     episode.setPercent(percent);
                     episode.save();
-                    ON_PAUSE(episode);
                     return;
                 }
-
-                if (isSleep) {
-                    // new Update(DownloadEpisode.class).set("is_downloading=0").where("episode_id=" + episode.getEpisode_id()).execute();
-                    episode.setFile_size(movieLength + downloadPosition);
-                    episode.save();
-                    stopDo();
-                }
-
                 ON_PROGRESS(episode);
             }
             bout.close();
+            L.info("file was dowloaded", logTag.dowloader_sevice);
 
             episode.setPercent(100);
             episode.setProgress(movieLength);
@@ -191,13 +187,12 @@ public class LoadMovieThread extends Thread {
             ON_FINISH_EPISODE(episode);
         } catch (Exception e) {
             e.printStackTrace();
+            L.error("some very big error in file load", e, logTag.dowloader_sevice);
             if (!NetUtils.isNetworkAvailable(context)) {
 
                 try {
                     DownloadEpisode temp = new DownloadEpisode();
                     temp.setEpisode_id(13275832);
-                    ON_PAUSE(temp);
-
                     stopDo();
                 } catch (Exception ex) {
 
@@ -210,22 +205,17 @@ public class LoadMovieThread extends Thread {
         isFree = true;
         isBreakDownloading = false;
         isSleep = false;
-        listener.onComplite();
-    }
-
-    private void ON_PAUSE(DownloadEpisode episode) {
-
     }
 
     private void ON_FINISH_EPISODE(DownloadEpisode episode) {
-
+        downloadListener.onFinishMovie(episode);
     }
 
     private void ON_PROGRESS(DownloadEpisode episode) {
-
+        downloadListener.onProgress(episode);
     }
 
     private void ON_START(DownloadEpisode episode) {
-
+        downloadListener.onStartMovie(episode);
     }
 }

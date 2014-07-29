@@ -32,22 +32,7 @@ public class MyActivity extends Activity {
     }
 
     private void InitMoves() {
-        moves.add("http://www.ex.ua/get/4182107");
-        moves.add("http://www.ex.ua/get/4182111");
-        moves.add("http://www.ex.ua/get/4182124");
-        moves.add("http://www.ex.ua/get/4182175");
-        moves.add("http://www.ex.ua/get/4182187");
-        moves.add("http://www.ex.ua/get/4182220");
-        moves.add("http://www.ex.ua/get/4182232");
-        moves.add("http://www.ex.ua/get/4182235");
-        moves.add("http://www.ex.ua/get/4182239");
-        moves.add("http://www.ex.ua/get/4182241");
-        moves.add("http://www.ex.ua/get/4182245");
-        moves.add("http://www.ex.ua/get/4248965");
-        moves.add("http://www.ex.ua/get/4249903");
-        moves.add("http://www.ex.ua/get/4254078");
-        moves.add("http://www.ex.ua/get/4345471");
-        moves.add("http://www.ex.ua/get/4408806");
+        moves.add("http://vid.lsw.redtubefiles.com//_videos_t4vn23s9jc5498tgj49icfj4678//0000352//_mp4//0352268.mp4?st=JN76wN4iJTfBAFqsyTLINg&e=1406633276");
 
     }
 
@@ -63,7 +48,6 @@ public class MyActivity extends Activity {
                 episode.setEpisode_id(lastShown*7);
                 lastShown++;
                 listAdapter.add(new testCard(MyActivity.this,episode));
-                MovieDownloaderManager.with(MyActivity.this).by(episode).load();
             }
         });
     }

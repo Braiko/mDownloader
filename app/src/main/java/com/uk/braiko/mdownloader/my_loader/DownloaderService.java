@@ -49,7 +49,7 @@ public class DownloaderService extends Service implements IMovieDownloadListener
     public void FillPool(){
         pool = new LinkedBlockingQueue<LoadMovieThread>();
         for(int i = 0;i<POOL_SIZE;i++) {
-            final LoadMovieThread workThread = new LoadMovieThread(getApplicationContext());
+            final LoadMovieThread workThread = new LoadMovieThread(getApplicationContext(),this);
             workThread.setOnStateChange(this);
             workThread.setOnCompliteTask(new IOnCompliteTaskListener(){
                 @Override
@@ -156,27 +156,27 @@ public class DownloaderService extends Service implements IMovieDownloadListener
 
     @Override
     public void onProgress(DownloadEpisode downloadItem) {
-
+        sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_PROGRESS, downloadItem));
     }
 
     @Override
     public void onPauseMovie(DownloadEpisode downloadItem) {
-
+        sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_PAUSE_DOWNLOADING, downloadItem));
     }
 
     @Override
     public void onResumeMovie(DownloadEpisode downloadItem) {
-
+        sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_RESUME_DOWNLOADING, downloadItem));
     }
 
     @Override
     public void onFinishMovie(DownloadEpisode downloadItem) {
-
+        sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_FINISH_MOVIE_DOWNLOADING, downloadItem));
     }
 
     @Override
     public void onStartMovie(DownloadEpisode downloadItem) {
-
+        sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_START_MOVIE_DOWNLOADING, downloadItem));
     }
 
     @Override
@@ -186,6 +186,7 @@ public class DownloaderService extends Service implements IMovieDownloadListener
 
     @Override
     public void onStatus(DownloadEpisode downloadItem) {
+        sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_STATUS, downloadItem));
 
     }
 

@@ -1,11 +1,13 @@
 package com.uk.braiko.mdownloader.my_loader;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
 
 import com.uk.braiko.mdownloader.Constants;
 import com.uk.braiko.mdownloader.DownloadEpisode;
-import com.uk.braiko.mdownloader.downloader.*;
+import com.uk.braiko.mdownloader.IntentUtils;
 import com.uk.braiko.mdownloader.my_loader.logger.L;
 import com.uk.braiko.mdownloader.my_loader.logger.logTag;
 
@@ -17,9 +19,73 @@ import java.util.HashMap;
 public class MovieDownloaderManager {
     private Activity activity;
     private static MovieDownloaderManager instance = new MovieDownloaderManager();
-    private HashMap<Long,MovieDownloaderManagerForEpisode> episodeDownloaderById = new HashMap<Long, MovieDownloaderManagerForEpisode>();
+    private HashMap<Long, MovieDownloaderManagerForEpisode> episodeDownloaderById = new HashMap<Long, MovieDownloaderManagerForEpisode>();
+    private BroadcastReceiver mProgressReceiver, mPauseReceiver, mResumeReceiver, mFinishReseiver, mStartReceiver, mFinishAllReceiver, mStatusReceiver;
 
-    protected MovieDownloaderManager() {
+
+    private MovieDownloaderManager() {
+        InstallBroadcast();
+    }
+
+    private void InstallBroadcast() {
+        mProgressReceiver = new BroadcastReceiver() {
+
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                DownloadEpisode move = IntentUtils.getDownloadItem(intent);
+
+                episodeDownloaderById.get(move.getEpisode_id()).onProgress(IntentUtils.getDownloadItem(intent));
+            }
+        };
+        mPauseReceiver = new BroadcastReceiver() {
+
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                DownloadEpisode move = IntentUtils.getDownloadItem(intent);
+                episodeDownloaderById.get(move.getEpisode_id()).onPauseMovie(IntentUtils.getDownloadItem(intent));
+            }
+        };
+        mResumeReceiver = new BroadcastReceiver() {
+
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                DownloadEpisode move = IntentUtils.getDownloadItem(intent);
+                episodeDownloaderById.get(move.getEpisode_id()).onResumeMovie(IntentUtils.getDownloadItem(intent));
+            }
+        };
+        mFinishReseiver = new BroadcastReceiver() {
+
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                DownloadEpisode move = IntentUtils.getDownloadItem(intent);
+                episodeDownloaderById.get(move.getEpisode_id()).onFinishMovie(IntentUtils.getDownloadItem(intent));
+            }
+        };
+        mStartReceiver = new BroadcastReceiver() {
+
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                DownloadEpisode move = IntentUtils.getDownloadItem(intent);
+                episodeDownloaderById.get(move.getEpisode_id()).onStartMovie(IntentUtils.getDownloadItem(intent));
+            }
+        };
+        mFinishAllReceiver = new BroadcastReceiver() {
+
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                DownloadEpisode move = IntentUtils.getDownloadItem(intent);
+                episodeDownloaderById.get(move.getEpisode_id()).onFinishAll();
+            }
+        };
+
+        mStatusReceiver = new BroadcastReceiver() {
+
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                DownloadEpisode move = IntentUtils.getDownloadItem(intent);
+                episodeDownloaderById.get(move.getEpisode_id()).onStatus(IntentUtils.getDownloadItem(intent));
+            }
+        };
     }
 
 
@@ -33,11 +99,11 @@ public class MovieDownloaderManager {
         return instance;
     }
 
-    public MovieDownloaderManagerForEpisode by(DownloadEpisode episode){
+    public MovieDownloaderManagerForEpisode by(DownloadEpisode episode) {
         L.info("appare new episode", logTag.dowloader_sevice);
-        if(!episodeDownloaderById.containsKey(episode.getId()))
+        if (!episodeDownloaderById.containsKey(episode.getId()))
             episodeDownloaderById.put(episode.getEpisode_id(),
-                    new MovieDownloaderManagerForEpisode(this,episode));
+                    new MovieDownloaderManagerForEpisode(this, episode));
         return episodeDownloaderById.get(episode.getEpisode_id());
     }
 
