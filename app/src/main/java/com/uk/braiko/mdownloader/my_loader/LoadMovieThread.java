@@ -2,7 +2,6 @@ package com.uk.braiko.mdownloader.my_loader;
 
 import android.content.Context;
 
-import com.activeandroid.query.Delete;
 import com.uk.braiko.mdownloader.DownloadEpisode;
 import com.uk.braiko.mdownloader.NetUtils;
 import com.uk.braiko.mdownloader.my_loader.logger.L;
@@ -13,6 +12,7 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -28,13 +28,11 @@ public class LoadMovieThread extends Thread {
     private volatile boolean isFree = true;
     private IOnCompliteTaskListener compliteListener;
     private DownloaderService.Task task;
-    private IMovieDownloadListener onStateChange;
     private volatile boolean isBreakDownloading = false;
-    private volatile boolean isSleep = false;
     private Context context;
     private IMovieDownloadListener downloadListener;
 
-    public LoadMovieThread(Context context,IMovieDownloadListener downloadListener) {
+    public LoadMovieThread(Context context, IMovieDownloadListener downloadListener) {
         this.context = context;
         this.downloadListener = downloadListener;
         this.start();
@@ -45,11 +43,9 @@ public class LoadMovieThread extends Thread {
     }
 
     public void doTask(DownloaderService.Task t) {
-        task = t;
         isFree = false;
-
-        boolean isBreakDownloading = false;
-        boolean isSleep = false;
+        isBreakDownloading = false;
+        task = t;
     }
 
     public void setOnCompliteTask(IOnCompliteTaskListener listener) {
@@ -60,9 +56,6 @@ public class LoadMovieThread extends Thread {
         return task;
     }
 
-    public void setOnStateChange(IMovieDownloadListener onStateChange) {
-        this.onStateChange = onStateChange;
-    }
 
     public void BreakDownloaded() {
         isBreakDownloading = true;
@@ -78,6 +71,7 @@ public class LoadMovieThread extends Thread {
                     sleep(1000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
+                    //todo log it
                 }
                 continue;
             }
@@ -94,117 +88,105 @@ public class LoadMovieThread extends Thread {
     private void downloadEpisode(DownloadEpisode episode) {
         L.info("start download epizode", logTag.dowloader_sevice);
         long downloadPosition;
-        int percent;
         try {
-            ON_START(episode);
-            episode.setIs_downloading(1);
-            episode.save();
-
-            String fileName = episode.getFull_path();
-
-            if (fileName.equals("")) {
-                fileName = getMovieFullName(context, episode, true);
-                episode.setFull_path(fileName);
-                episode.save();
-            }
-
-            File downloadingFile = new File(episode.getFull_path());
-
-            if (downloadingFile.exists()) {
-                downloadPosition = downloadingFile.length();
-            } else {
-                downloadPosition = 0;
-                downloadingFile.createNewFile();
-            }
-
-            //	System.out.println(episode.getLink());
-
-            URL url = new URL(episode.getLink());
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-
-            connection.setRequestProperty("Range", "bytes=" + downloadPosition + "-");
-
-            connection.setDoInput(true);
-            // connection.setDoOutput(true);
-            InputStream in = null;
-            try {
-                in = new BufferedInputStream(connection.getInputStream());
-            } catch (FileNotFoundException e) {
-                L.error("link need refresh",e,logTag.dowloader_sevice);
-                refreshLink(episode);
-                url = new URL(episode.getLink());
-                connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestProperty("Range", "bytes=" + downloadPosition + "-");
-                connection.setDoInput(true);
-                in = new BufferedInputStream(connection.getInputStream());
-            }
-
-            long movieLength = connection.getContentLength();
-            episode.setFile_size(movieLength + downloadPosition);
-            episode.save();
-
-            FileOutputStream fos = new FileOutputStream(downloadingFile, true);
-            BufferedOutputStream bout = new BufferedOutputStream(fos, 8192);
-
-            byte[] data = new byte[8192];
-            int x = 0;
-            while ((x = in.read(data, 0, 8192)) >= 0) {
-                bout.write(data, 0, x);
-                downloadPosition += x;
-                episode.setProgress(downloadPosition);
-                percent = (int) (((double) downloadPosition / (double) episode.getFile_size()) * 100);
-                L.info("receive " + x + " byte of doanloaded file ( "+percent+" %)", logTag.dowloader_sevice);
-                episode.setPercent(percent);
-                if (episode.isNeed_delete()) {
-                    try {
-                        File file = new File(episode.getFull_path());
-                        file.delete();
-                    } catch (Exception e) {
-                        L.error("cnan`t delete file when downloaded",e,logTag.dowloader_sevice);
-                    }
-                    new Delete().from(DownloadEpisode.class).where("episode_id=" + episode.getEpisode_id()).executeSingle();
-                    return;
-                }
-                if (isBreakDownloading) {
-                    bout.flush();
-                    bout.close();
-
-                    episode.setProgress(downloadPosition);
-                    episode.setPercent(percent);
-                    episode.save();
-                    return;
-                }
-                ON_PROGRESS(episode);
-            }
-            bout.close();
-            L.info("file was dowloaded", logTag.dowloader_sevice);
-
-            episode.setPercent(100);
-            episode.setProgress(movieLength);
-
+            PrepareEpisodeForDownload(episode);
+            File downloadingFile = getDownloadingFile(episode);
+            downloadPosition = downloadingFile.length();
+            InputStream in = getInputConnectionForEpisode(episode, downloadPosition);
+            long movieLength = episode.getFile_size() - downloadPosition;
+            if (downloadPosition > 0)
+                ON_RESUME(episode);
+            else
+                ON_START(episode);
+            startMainDownloadLoop(episode, in, downloadingFile, downloadPosition);
             episode.setIs_downloading(0);
             renameMovie(context, episode).save();
             ON_FINISH_EPISODE(episode);
         } catch (Exception e) {
+            //todo remove global try_catch
             e.printStackTrace();
             L.error("some very big error in file load", e, logTag.dowloader_sevice);
             if (!NetUtils.isNetworkAvailable(context)) {
-
-                try {
-                    DownloadEpisode temp = new DownloadEpisode();
-                    temp.setEpisode_id(13275832);
-                    stopDo();
-                } catch (Exception ex) {
-
-                }
+                //todo
             }
         }
     }
 
-    private void stopDo() {
-        isFree = true;
-        isBreakDownloading = false;
-        isSleep = false;
+    private InputStream getInputConnectionForEpisode(DownloadEpisode episode, long downloadPosition) throws IOException {
+        URL url = new URL(episode.getLink());
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestProperty("Range", "bytes=" + downloadPosition + "-");
+        connection.setDoInput(true);
+        InputStream in = null;
+        try {
+            in = new BufferedInputStream(connection.getInputStream());
+        } catch (FileNotFoundException e) {
+            L.error("link need refresh", e, logTag.dowloader_sevice);
+            refreshLink(episode);
+            url = new URL(episode.getLink());
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestProperty("Range", "bytes=" + downloadPosition + "-");
+            connection.setDoInput(true);
+            in = new BufferedInputStream(connection.getInputStream());
+        }
+
+        long movieLength = connection.getContentLength();
+        episode.setFile_size(movieLength + downloadPosition);
+        episode.save();
+        return in;
+    }
+
+    private void PrepareEpisodeForDownload(DownloadEpisode episode) {
+        episode.setIs_downloading(1);
+        episode.save();
+    }
+
+
+    public File getDownloadingFile(DownloadEpisode episode) throws IOException {
+        String fileName = episode.getFull_path();
+        if (fileName.equals("")) {
+            fileName = getMovieFullName(context, episode, true);
+            episode.setFull_path(fileName);
+            episode.save();
+        }
+        File downloadingFile = new File(episode.getFull_path());
+        if (!downloadingFile.exists()) downloadingFile.createNewFile();
+        return downloadingFile;
+    }
+
+    public void startMainDownloadLoop(DownloadEpisode episode, InputStream in, File downloadingFile, long downloadPosition) throws IOException {
+        int percent = episode.getPercent();
+        BufferedOutputStream bout = new BufferedOutputStream(new FileOutputStream(downloadingFile, true), 8192);
+        byte[] data = new byte[8192];
+        int x;
+        long movieLength = episode.getFile_size() - downloadPosition;
+        while (true) {
+            if (isBreakDownloading) {
+                L.info("download thread is stoped download epizode with id (" + episode.getEpisode_id() + ")", logTag.dowloader_sevice);
+                bout.flush();
+                bout.close();
+                episode.setProgress(downloadPosition);
+                episode.setPercent(percent);
+                episode.save();
+                ON_PAUSED(episode);
+                return;
+            }
+            if ((x = in.read(data, 0, 8192)) < 0) {
+                episode.setPercent(100);
+                episode.setProgress(movieLength);
+                break;
+            }
+            bout.write(data, 0, x);
+            downloadPosition += x;
+            episode.setProgress(downloadPosition);
+            percent = (int) (((double) downloadPosition / (double) episode.getFile_size()) * 100);
+            L.debug("receive " + x + " byte of doanloaded file by id " + episode.getEpisode_id() + "( " + percent + " %)", logTag.dowloader_sevice);
+            episode.setPercent(percent);
+            episode.save();
+            ON_PROGRESS(episode);
+        }
+        bout.close();
+        L.info("file was dowloaded, episod id = " + episode.getEpisode_id(), logTag.dowloader_sevice);
     }
 
     private void ON_FINISH_EPISODE(DownloadEpisode episode) {
@@ -218,4 +200,14 @@ public class LoadMovieThread extends Thread {
     private void ON_START(DownloadEpisode episode) {
         downloadListener.onStartMovie(episode);
     }
+
+    private void ON_PAUSED(DownloadEpisode episode) {
+        downloadListener.onPauseMovie(episode);
+    }
+
+
+    private void ON_RESUME(DownloadEpisode episode) {
+        downloadListener.onResumeMovie(episode);
+    }
+
 }

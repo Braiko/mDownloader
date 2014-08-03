@@ -31,6 +31,12 @@ public class L {
         Log.e(generateSingleTag(tag), msg, error);
     }
 
+    public static void debug(String msg, logTag... tag) {
+        if (!isNeedLogs())
+            return;
+        Log.d(generateSingleTag(tag), msg);
+    }
+
     private static String generateSingleTag(logTag[] tag) {
         String result = "";
         for (logTag t : tag)
