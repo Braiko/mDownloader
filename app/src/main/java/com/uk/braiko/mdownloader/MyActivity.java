@@ -14,6 +14,7 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 import com.uk.braiko.mdownloader.my_loader.IMovieDownloadListener;
+import com.uk.braiko.mdownloader.my_loader.IOnServerStateListener;
 import com.uk.braiko.mdownloader.my_loader.MovieDownloaderManager;
 import com.uk.braiko.mdownloader.my_loader.logger.L;
 import com.uk.braiko.mdownloader.my_loader.logger.logTag;
@@ -35,8 +36,30 @@ public class MyActivity extends Activity {
         setContentView(R.layout.activity_my);
         InistallAddBtn();
         InitMoves();
+        RestoreDownloadItem();
         this.container = (LinearLayout) findViewById(R.id.itemContainer);
         this.inflater = LayoutInflater.from(this);
+    }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        MovieDownloaderManager.destroy();
+    }
+
+    private void RestoreDownloadItem() {
+        MovieDownloaderManager.with(MyActivity.this).status().listened(new IOnServerStateListener() {
+            @Override
+            public void onnewstateget(ArrayList<DownloadEpisode> episodes) {
+                for (DownloadEpisode episode : episodes)
+                    AddEpizode(episode);
+            }
+
+            @Override
+            public void onFinishAll() {
+                //todo show something
+            }
+        });
     }
 
     private void InitMoves() {
@@ -49,7 +72,6 @@ public class MyActivity extends Activity {
 //        moves.add("");
 
         moves.add("http://st.gdefon.com/wallpapers_original/wallpapers/399273_priroda_leto_derevya_trava_zelen_2048x1365_(www.GdeFon.ru).jpg");
-        moves.add("http://img0.joyreactor.cc/pics/post/full/%D0%BA%D1%80%D0%B0%D1%81%D0%B8%D0%B2%D1%8B%D0%B5-%D0%BA%D0%B0%D1%80%D1%82%D0%B8%D0%BD%D0%BA%D0%B8-%D0%9F%D1%80%D0%B8%D1%80%D0%BE%D0%B4%D0%B0-%D1%80%D0%B5%D0%BA%D0%B0-1105667.jpeg");
         moves.add("http://kapuchel.net/uploads/posts/2013-10/1381844088__20111023_1953965362.jpg");
         moves.add("http://polten.info/uploads/posts/2014-05/1401542486_elitefon.ru_1126.jpg");
         moves.add("http://www.salon.donetsk.ua/upload/iblock/d08/d080ed81476585fce2a9806a84bb3552.JPG");
@@ -77,7 +99,6 @@ public class MyActivity extends Activity {
         moves.add("http://mw2.google.com/mw-panoramio/photos/medium/45888990.jpg");
         moves.add("http://ekolog.ck.ua/wp-content/uploads/2013/04/DSCF6324.jpg");
         moves.add("http://kolyan.net/uploads/posts/2013-04/1365545522_84-69.jpg");
-        moves.add("http://img0.joyreactor.cc/pics/post/full/%D0%A3%D0%BA%D1%80%D0%B0%D0%B8%D0%BD%D0%B0-%D0%BE%D0%B7%D0%B5%D1%80%D0%BE-%D0%B2%D0%BE%D0%B4%D0%B0-%D0%B7%D0%B0%D0%BA%D0%B0%D1%82-1240382.jpeg");
         moves.add("http://s5.goodfon.ru/image/250578-2560x1600.jpg");
         moves.add("http://www.nastol.com.ua/images/201406/nastol.com.ua_101104.jpg");
         moves.add("http://upload.wikimedia.org/wikipedia/commons/2/20/Ukraine._Kamenets-Podolsky.jpg");
@@ -191,11 +212,11 @@ public class MyActivity extends Activity {
         name.setText(episode.getFull_path() + "\n\t::::: id =" + episode.getEpisode_id());
         progress.setProgress(episode.getPercent());
         MovieDownloaderManager.with(MyActivity.this).by(episode).listened(listener).status();
+        MovieDownloaderManager.with(MyActivity.this).by(episode).listened(listener).save();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        lastShown = 0;
     }
 }

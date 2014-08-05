@@ -72,6 +72,9 @@ public class DownloadEpisode extends Model implements Parcelable {
     @Column(name = "episode_num")
     private int episode_num;
 
+    @Column(name = "status")
+    private int status;
+
     public DownloadEpisode() {
         super();
         this.poster = "";
@@ -93,6 +96,7 @@ public class DownloadEpisode extends Model implements Parcelable {
         is_movie = 0;
         season_num = 0;
         episode_num = 0;
+        status = -1;
     }
 
     public int getEpisode_num() {
@@ -339,4 +343,12 @@ public class DownloadEpisode extends Model implements Parcelable {
             return new DownloadEpisode[size];
         }
     };
+
+    public int getStatus() {
+        return status;
+    }
+
+    public void setStatus(int status) {
+        this.status = status;
+    }
 }

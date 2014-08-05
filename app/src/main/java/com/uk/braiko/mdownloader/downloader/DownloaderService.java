@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.ArrayList;
 import java.util.zip.GZIPInputStream;
 
 public class DownloaderService extends Service {
@@ -215,7 +216,7 @@ public class DownloaderService extends Service {
     }
 
     private void ON_FINISH_ALL() {
-        sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_FINISH_ALL_DOWNLOADING, null));
+        sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_FINISH_ALL_DOWNLOADING, new ArrayList<DownloadEpisode>()));
     }
 
     private void ON_PAUSE(DownloadEpisode _episode) {

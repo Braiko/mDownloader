@@ -6,7 +6,6 @@ import android.content.Intent;
 import android.os.Environment;
 import android.os.IBinder;
 
-import com.activeandroid.query.Delete;
 import com.activeandroid.query.Select;
 import com.uk.braiko.mdownloader.Constants;
 import com.uk.braiko.mdownloader.DownloadEpisode;
@@ -19,7 +18,9 @@ import com.uk.braiko.mdownloader.my_loader.logger.logTag;
 import java.io.File;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.UUID;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.zip.GZIPInputStream;
@@ -137,12 +138,34 @@ public class DownloaderService extends Service implements IMovieDownloadListener
                     getStatus(episode);
                     break;
                 }
+                case Constants.CMD_GET_COMMON_STATUS: {
+                    L.info("service parse command as Constants.CMD_GET_COMMON_STATUS", logTag.dowloader_sevice);
+                    getCommonStatus();
+                    break;
+                }
+                case Constants.CMD_SAVE: {
+                    L.info("service parse command as Constants.CMD_SAVE", logTag.dowloader_sevice);
+                    save(episode);
+                    break;
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
             L.error("some error when service get task", e, logTag.dowloader_sevice);
         }
         return START_NOT_STICKY;
+    }
+
+    private void save(final DownloadEpisode episode) {
+        doSynhronizedWork(new WorkWraper() {
+            @Override
+            public void doJob() {
+                Task t = new Task();
+                t.episode = episode;
+                t.status = Constants.CMD_START_DOWNLOAD;
+                task_by_episodeID.put(episode.getEpisode_id(),t);
+            }
+        });
     }
 
     private void PauseMove(final DownloadEpisode episode) {
@@ -172,6 +195,8 @@ public class DownloaderService extends Service implements IMovieDownloadListener
                 if (tasks.contains(episode.getEpisode_id())) {
                     tasks.remove(episode.getEpisode_id());
                 }
+                if(task_by_episodeID.containsKey(episode.getEpisode_id()))
+                    task_by_episodeID.remove(episode.getEpisode_id());
                 removeFile(episode);
                 episode.setProgress(0);
                 episode.setPercent(0);
@@ -193,6 +218,8 @@ public class DownloaderService extends Service implements IMovieDownloadListener
                 Task t = new Task();
                 t.episode = episode;
                 t.status = Constants.CMD_START_DOWNLOAD;
+                episode.setStatus(Constants.STS_WHATE_IN_QUEUE);
+                episode.save();
                 task_by_episodeID.put(episode.getEpisode_id(), t);
                 try {
                     tasks.put(episode.getEpisode_id());
@@ -212,6 +239,19 @@ public class DownloaderService extends Service implements IMovieDownloadListener
                     onStatus(task_by_episodeID.get(episode.getEpisode_id()).episode);
                 else
                     onStatus(episode);
+            }
+        });
+    }
+
+    private void getCommonStatus() {
+        doSynhronizedWork(new WorkWraper() {
+            @Override
+            public void doJob() {
+                Iterator<Long> episodeIDs = task_by_episodeID.keySet().iterator();
+                ArrayList<DownloadEpisode> result = new ArrayList<DownloadEpisode>();
+                while (episodeIDs.hasNext())
+                    result.add(task_by_episodeID.get(episodeIDs.next()).episode);
+                onAllStatus(result);
             }
         });
     }
@@ -294,7 +334,10 @@ public class DownloaderService extends Service implements IMovieDownloadListener
     @Override
     public void onStatus(DownloadEpisode downloadItem) {
         sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_STATUS, downloadItem));
+    }
 
+    protected void onAllStatus(ArrayList<DownloadEpisode> episodes) {
+        sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_All_STATUS, episodes));
     }
 
 
@@ -378,6 +421,8 @@ public class DownloaderService extends Service implements IMovieDownloadListener
 
     public static DownloadEpisode getDownloadItem(Intent _intent) {
         DownloadEpisode result = _intent.getParcelableExtra(Constants.ARG_DOWNLOAD_ITEM);
+        if (result == null)
+            return result;
         DownloadEpisode cachedItem = new Select().from(DownloadEpisode.class).where("episode_id=" +
                 result.getEpisode_id()).executeSingle();
         if (cachedItem != null)

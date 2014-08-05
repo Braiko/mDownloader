@@ -2,6 +2,7 @@ package com.uk.braiko.mdownloader.my_loader;
 
 import android.content.Context;
 
+import com.uk.braiko.mdownloader.Constants;
 import com.uk.braiko.mdownloader.DownloadEpisode;
 import com.uk.braiko.mdownloader.NetUtils;
 import com.uk.braiko.mdownloader.my_loader.logger.L;
@@ -105,8 +106,12 @@ public class LoadMovieThread extends Thread {
                 ON_RESUME(episode);
             else
                 ON_START(episode);
+            episode.setStatus(Constants.STS_LOADED);
+            episode.save();
             startMainDownloadLoop(episode, in, downloadingFile, downloadPosition);
             episode.setIs_downloading(0);
+            episode.setStatus(Constants.STS_ON_PAUSE);
+            episode.save();
             if (isDeleted) {
                 episode.setProgress(0);
                 episode.setPercent(0);

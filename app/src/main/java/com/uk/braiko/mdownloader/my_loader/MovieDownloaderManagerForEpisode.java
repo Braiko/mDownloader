@@ -50,6 +50,9 @@ public class MovieDownloaderManagerForEpisode implements IMovieDownloadListener{
         parent.Status(this);
     }
 
+    public void save() {parent.Save(this);
+    }
+
 
     //###################################################################################################################################################
     // getters & setters
