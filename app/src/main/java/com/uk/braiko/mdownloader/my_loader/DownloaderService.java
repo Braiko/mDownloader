@@ -28,7 +28,7 @@ import java.util.zip.GZIPInputStream;
  * Created by yura on 28.07.14.
  */
 public class DownloaderService extends Service implements IMovieDownloadListener {
-    private static final int POOL_SIZE = 2;
+    private static final int POOL_SIZE = 12;
 
     private LinkedBlockingQueue<Long> tasks = new LinkedBlockingQueue<Long>();
     private HashMap<Long, Task> task_by_episodeID = new HashMap<Long, Task>();
@@ -123,14 +123,17 @@ public class DownloaderService extends Service implements IMovieDownloadListener
                     break;
                 }
                 case Constants.CMD_DELETE_MOVIE: {
+                    L.info("service parse command as Constants.CMD_DELETE_MOVIE", logTag.dowloader_sevice);
                     DeleteMove(episode);
                     break;
                 }
                 case Constants.CMD_PAUSE_MOVIE: {
+                    L.info("service parse command as Constants.CMD_PAUSE_MOVIE", logTag.dowloader_sevice);
                     PauseMove(episode);
                     break;
                 }
                 case Constants.CMD_GET_STATUS: {
+                    L.info("service parse command as Constants.CMD_GET_STATUS", logTag.dowloader_sevice);
                     getStatus(episode);
                     break;
                 }
@@ -139,7 +142,7 @@ public class DownloaderService extends Service implements IMovieDownloadListener
             e.printStackTrace();
             L.error("some error when service get task", e, logTag.dowloader_sevice);
         }
-        return super.onStartCommand(intent, flags, startId);
+        return START_NOT_STICKY;
     }
 
     private void PauseMove(final DownloadEpisode episode) {
@@ -164,13 +167,15 @@ public class DownloaderService extends Service implements IMovieDownloadListener
             @Override
             public void doJob() {
                 if (threadFromPool_by_EpizodeID.containsKey(episode.getEpisode_id())) {
-                    threadFromPool_by_EpizodeID.get(episode.getEpisode_id()).BreakDownloaded();
-                    return;
+                    threadFromPool_by_EpizodeID.get(episode.getEpisode_id()).DeleteMove();
                 }
                 if (tasks.contains(episode.getEpisode_id())) {
                     tasks.remove(episode.getEpisode_id());
                 }
                 removeFile(episode);
+                episode.setProgress(0);
+                episode.setPercent(0);
+                episode.save();
                 onFinishMovie(episode);
             }
         });
@@ -205,7 +210,8 @@ public class DownloaderService extends Service implements IMovieDownloadListener
             public void doJob() {
                 if (task_by_episodeID.containsKey(episode.getEpisode_id()))
                     onStatus(task_by_episodeID.get(episode.getEpisode_id()).episode);
-                onStatus(episode);
+                else
+                    onStatus(episode);
             }
         });
     }
@@ -367,7 +373,6 @@ public class DownloaderService extends Service implements IMovieDownloadListener
     protected static void removeFile(DownloadEpisode episode) {
         File file = new File(episode.getFull_path());
         if (file.exists()) file.delete();
-        new Delete().from(DownloadEpisode.class).where("episode_id=" + episode.getEpisode_id()).executeSingle();
 
     }
 
@@ -392,6 +397,11 @@ public class DownloaderService extends Service implements IMovieDownloadListener
         return null;
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        L.info("service destroy", logTag.dowloader_sevice);
+    }
     //###############################################################################################################################################################################
     // addition data type
     //###############################################################################################################################################################################

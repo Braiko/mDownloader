@@ -31,6 +31,7 @@ public class LoadMovieThread extends Thread {
     private volatile boolean isBreakDownloading = false;
     private Context context;
     private IMovieDownloadListener downloadListener;
+    private boolean isDeleted = false;
 
     public LoadMovieThread(Context context, IMovieDownloadListener downloadListener) {
         this.context = context;
@@ -45,6 +46,7 @@ public class LoadMovieThread extends Thread {
     public void doTask(DownloaderService.Task t) {
         isFree = false;
         isBreakDownloading = false;
+        isDeleted = false;
         task = t;
     }
 
@@ -59,6 +61,11 @@ public class LoadMovieThread extends Thread {
 
     public void BreakDownloaded() {
         isBreakDownloading = true;
+    }
+
+    public void DeleteMove() {
+        isBreakDownloading = true;
+        isDeleted = true;
     }
 
 
@@ -100,13 +107,24 @@ public class LoadMovieThread extends Thread {
                 ON_START(episode);
             startMainDownloadLoop(episode, in, downloadingFile, downloadPosition);
             episode.setIs_downloading(0);
-            renameMovie(context, episode).save();
+            if (isDeleted) {
+                episode.setProgress(0);
+                episode.setPercent(0);
+                episode.save();
+                return;
+            }
+            ON_PROGRESS(episode);
+            if (episode.getFile_size() == episode.getProgress())
+                renameMovie(context, episode).save();
             ON_FINISH_EPISODE(episode);
         } catch (Exception e) {
-            //todo remove global try_catch
+            episode.save();
+            ON_PAUSED(episode);
             e.printStackTrace();
             L.error("some very big error in file load", e, logTag.dowloader_sevice);
             if (!NetUtils.isNetworkAvailable(context)) {
+                episode.save();
+                ON_PAUSED(episode);
                 //todo
             }
         }
@@ -160,6 +178,10 @@ public class LoadMovieThread extends Thread {
         byte[] data = new byte[8192];
         int x;
         long movieLength = episode.getFile_size() - downloadPosition;
+        long lastProgress = downloadPosition;
+        int bufferSize = 8192;
+        int maxInterationCount = 15;
+        int currentIterationCount = 0;
         while (true) {
             if (isBreakDownloading) {
                 L.info("download thread is stoped download epizode with id (" + episode.getEpisode_id() + ")", logTag.dowloader_sevice);
@@ -168,7 +190,8 @@ public class LoadMovieThread extends Thread {
                 episode.setProgress(downloadPosition);
                 episode.setPercent(percent);
                 episode.save();
-                ON_PAUSED(episode);
+                if (isDeleted)  ON_FINISH_EPISODE(episode);
+                else            ON_PAUSED(episode);
                 return;
             }
             if ((x = in.read(data, 0, 8192)) < 0) {
@@ -183,7 +206,11 @@ public class LoadMovieThread extends Thread {
             L.debug("receive " + x + " byte of doanloaded file by id " + episode.getEpisode_id() + "( " + percent + " %)", logTag.dowloader_sevice);
             episode.setPercent(percent);
             episode.save();
-            ON_PROGRESS(episode);
+            currentIterationCount++;
+            if (currentIterationCount >= maxInterationCount) {
+                ON_PROGRESS(episode);
+                currentIterationCount = 0;
+            }
         }
         bout.close();
         L.info("file was dowloaded, episod id = " + episode.getEpisode_id(), logTag.dowloader_sevice);

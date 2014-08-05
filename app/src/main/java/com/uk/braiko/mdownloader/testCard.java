@@ -33,7 +33,10 @@ public class testCard extends Card implements IMovieDownloadListener {
         InstallDeleteBtn(view);
         InstallName(view);
         this.progress = (SeekBar) view.findViewById(R.id.seekBar);
+        progress.setProgress(0);
         this.status = (TextView) view.findViewById(R.id.status);
+        status.setText("");
+        status.setBackgroundColor(Color.TRANSPARENT);
     }
 
     private void InstallName(View view) {

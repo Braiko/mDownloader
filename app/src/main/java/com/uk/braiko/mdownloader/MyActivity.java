@@ -1,37 +1,53 @@
 package com.uk.braiko.mdownloader;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.ListView;
+import android.widget.SeekBar;
+import android.widget.TextView;
 
+import com.uk.braiko.mdownloader.my_loader.IMovieDownloadListener;
 import com.uk.braiko.mdownloader.my_loader.MovieDownloaderManager;
 import com.uk.braiko.mdownloader.my_loader.logger.L;
 import com.uk.braiko.mdownloader.my_loader.logger.logTag;
 
 import java.util.ArrayList;
 
-import it.gmariotti.cardslib.library.internal.Card;
-import it.gmariotti.cardslib.library.internal.CardArrayAdapter;
-import it.gmariotti.cardslib.library.view.CardListView;
-
 
 public class MyActivity extends Activity {
 
-    private CardListView list;
-    private CardArrayAdapter listAdapter;
+    private ListView list;
     ArrayList<String> moves = new ArrayList<String>();
     int lastShown = 0;
+    private LinearLayout container;
+    private LayoutInflater inflater;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_my);
-        InitList();
         InistallAddBtn();
         InitMoves();
+        this.container = (LinearLayout) findViewById(R.id.itemContainer);
+        this.inflater = LayoutInflater.from(this);
     }
 
     private void InitMoves() {
+//        moves.add("http://download.fedoraproject.org/pub/fedora/linux/releases/20/Live/i386/Fedora-Live-Desktop-i686-20-1.iso");
+//        moves.add("http://download.fedoraproject.org/pub/fedora/linux/releases/20/Live/x86_64/Fedora-Live-Desktop-x86_64-20-1.iso");
+//        moves.add("http://download.fedoraproject.org/pub/fedora/linux/releases/20/Live/i386/Fedora-Live-KDE-i686-20-1.iso");
+//        moves.add("http://download.fedoraproject.org/pub/fedora/linux/releases/20/Live/x86_64/Fedora-Live-KDE-x86_64-20-1.iso");
+//        moves.add("http://download.fedoraproject.org/pub/fedora/linux/releases/20/Live/x86_64/Fedora-Live-SoaS-x86_64-20-1.iso");
+
+//        moves.add("");
+
         moves.add("http://st.gdefon.com/wallpapers_original/wallpapers/399273_priroda_leto_derevya_trava_zelen_2048x1365_(www.GdeFon.ru).jpg");
         moves.add("http://img0.joyreactor.cc/pics/post/full/%D0%BA%D1%80%D0%B0%D1%81%D0%B8%D0%B2%D1%8B%D0%B5-%D0%BA%D0%B0%D1%80%D1%82%D0%B8%D0%BD%D0%BA%D0%B8-%D0%9F%D1%80%D0%B8%D1%80%D0%BE%D0%B4%D0%B0-%D1%80%D0%B5%D0%BA%D0%B0-1105667.jpeg");
         moves.add("http://kapuchel.net/uploads/posts/2013-10/1381844088__20111023_1953965362.jpg");
@@ -80,14 +96,106 @@ public class MyActivity extends Activity {
                 episode.setLink(moves.get(lastShown));
                 episode.setEpisode_id(lastShown);
                 lastShown++;
-                listAdapter.add(new testCard(MyActivity.this,episode));
+                AddEpizode(episode);
+//                listAdapter.add(episode);
             }
         });
     }
 
-    private void InitList() {
-        this.list = (CardListView) findViewById(R.id.list);
-        listAdapter = new CardArrayAdapter(this, new ArrayList<Card>());
-        list.setAdapter(this.listAdapter);
+    private void AddEpizode(DownloadEpisode episode) {
+        View convertView = inflater.inflate(R.layout.test_card, null);
+        installView(convertView, episode);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+        convertView.setLayoutParams(params);
+        container.addView(convertView);
+    }
+
+    private void installView(final View view, final DownloadEpisode episode) {
+        final Button btn = (Button) view.findViewById(R.id.go);
+        final SeekBar progress = (SeekBar) view.findViewById(R.id.seekBar);
+        progress.setProgress(0);
+        final TextView status = (TextView) view.findViewById(R.id.status);
+        status.setText("");
+        status.setBackgroundColor(Color.TRANSPARENT);
+        final IMovieDownloadListener listener = new IMovieDownloadListener() {
+            @Override
+            public void onProgress(DownloadEpisode downloadItem) {
+                progress.setProgress((int) downloadItem.getPercent());
+                status.setText("progress ::" + downloadItem.getFile_size()
+                        + "/" + downloadItem.getProgress() + "( " + downloadItem.getPercent() + "% )");
+            }
+
+            @Override
+            public void onPauseMovie(DownloadEpisode downloadItem) {
+                status.setText("pause ::" + downloadItem.getFile_size()
+                        + "/" + downloadItem.getProgress() + "( " + downloadItem.getPercent() + "% )");
+                btn.setText("go");
+            }
+
+            @Override
+            public void onResumeMovie(DownloadEpisode downloadItem) {
+                status.setText("resume ::" + downloadItem.getFile_size()
+                        + "/" + downloadItem.getProgress() + "( " + downloadItem.getPercent() + "% )");
+            }
+
+            @Override
+            public void onFinishMovie(DownloadEpisode downloadItem) {
+                status.setText("finish this ::");
+                btn.setText("go");
+            }
+
+            @Override
+            public void onStartMovie(DownloadEpisode downloadItem) {
+                status.setText("start ::" + downloadItem.getFile_size()
+                        + "/" + downloadItem.getProgress() + "( " + downloadItem.getPercent() + "% )");
+            }
+
+            @Override
+            public void onFinishAll() {
+            }
+
+            @Override
+            public void onStatus(DownloadEpisode downloadItem) {
+                new AlertDialog.Builder(MyActivity.this)
+                        .setTitle("getting status")
+                        .setMessage("download ::" + downloadItem.getPercent() + "%")
+                        .setIcon(android.R.drawable.ic_dialog_alert)
+                        .show();
+                progress.setProgress(downloadItem.getPercent());
+            }
+        };
+        btn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (btn.getText().equals("go")) {
+                    MovieDownloaderManager.with(MyActivity.this).by(episode).listened(listener).load();
+                    btn.setText("stop");
+                } else {
+                    MovieDownloaderManager.with(MyActivity.this).by(episode).listened(listener).pause();
+                    btn.setText("go");
+                }
+            }
+        });
+
+        btn.setText("go");
+
+        view.findViewById(R.id.delete).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                MovieDownloaderManager.with(MyActivity.this).by(episode).listened(listener).delete();
+                container.removeView(view);
+            }
+        });
+
+        TextView name = (TextView) view.findViewById(R.id.name);
+        name.setText(episode.getFull_path() + "\n\t::::: id =" + episode.getEpisode_id());
+        progress.setProgress(episode.getPercent());
+        MovieDownloaderManager.with(MyActivity.this).by(episode).listened(listener).status();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        lastShown = 0;
     }
 }
