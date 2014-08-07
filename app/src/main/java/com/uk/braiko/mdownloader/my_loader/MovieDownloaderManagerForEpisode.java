@@ -4,7 +4,6 @@ import android.content.Intent;
 
 import com.uk.braiko.mdownloader.Constants;
 import com.uk.braiko.mdownloader.DownloadEpisode;
-import com.uk.braiko.mdownloader.downloader.*;
 
 /**
  * Created by yura on 28.07.14.

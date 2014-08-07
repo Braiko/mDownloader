@@ -21,6 +21,8 @@ import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.zip.GZIPInputStream;
@@ -30,16 +32,38 @@ import java.util.zip.GZIPInputStream;
  */
 public class DownloaderService extends Service implements IMovieDownloadListener {
     private static final int POOL_SIZE = 12;
+    private static final long PROGGRESS_TIMER_TICK = 750;
 
     private LinkedBlockingQueue<Long> tasks = new LinkedBlockingQueue<Long>();
     private HashMap<Long, Task> task_by_episodeID = new HashMap<Long, Task>();
     private LinkedBlockingQueue<LoadMovieThread> pool;
     private HashMap<Long, LoadMovieThread> threadFromPool_by_EpizodeID = new HashMap<Long, LoadMovieThread>();
+    private HashMap<Long, DownloadEpisode> episideForProggresSend = new HashMap<Long, DownloadEpisode>();
+    private TimerTask proggressTask;
+    private Timer progrssTimer;
 
     @Override
     public void onCreate() {
         InitPool();
+        StartProgrssSender();
         super.onCreate();
+    }
+
+    private void StartProgrssSender() {
+        this.proggressTask  = new TimerTask() {
+            @Override
+            public void run() {
+                doSyncWorckWithProggress(new WorkWraper() {
+                    @Override
+                    public void doJob() {
+                        for (Long id: episideForProggresSend.keySet())
+                            sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_PROGRESS, episideForProggresSend.get(id)));
+                    }
+                });
+            }
+        };
+        this.progrssTimer = new Timer();
+        progrssTimer.schedule(proggressTask,PROGGRESS_TIMER_TICK,PROGGRESS_TIMER_TICK);
     }
 
     //#################################################################################################################################################
@@ -296,34 +320,67 @@ public class DownloaderService extends Service implements IMovieDownloadListener
         wraper.doJob();
     }
 
+    private synchronized void doSyncWorckWithProggress(WorkWraper wraper) {
+        wraper.doJob();
+    }
+
     //###############################################################################################################################################################################
     // broadcast sender
     //###############################################################################################################################################################################
 
 
     @Override
-    public void onProgress(DownloadEpisode downloadItem) {
-        sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_PROGRESS, downloadItem));
+    public void onProgress(final DownloadEpisode downloadItem) {
+        doSyncWorckWithProggress(new WorkWraper() {
+            @Override
+            public void doJob() {
+                episideForProggresSend.put(downloadItem.getEpisode_id(), downloadItem);
+            }
+        });
     }
 
     @Override
-    public void onPauseMovie(DownloadEpisode downloadItem) {
-        sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_PAUSE_DOWNLOADING, downloadItem));
+    public void onPauseMovie(final DownloadEpisode downloadItem) {
+        doSyncWorckWithProggress(new WorkWraper() {
+            @Override
+            public void doJob() {
+                episideForProggresSend.remove(downloadItem.getEpisode_id());
+                sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_PAUSE_DOWNLOADING, downloadItem));
+            }
+        });
     }
 
     @Override
-    public void onResumeMovie(DownloadEpisode downloadItem) {
-        sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_RESUME_DOWNLOADING, downloadItem));
+    public void onResumeMovie(final DownloadEpisode downloadItem) {
+        doSyncWorckWithProggress(new WorkWraper() {
+            @Override
+            public void doJob() {
+                episideForProggresSend.remove(downloadItem.getEpisode_id());
+                sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_RESUME_DOWNLOADING, downloadItem));
+            }
+        });
     }
 
     @Override
-    public void onFinishMovie(DownloadEpisode downloadItem) {
-        sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_FINISH_MOVIE_DOWNLOADING, downloadItem));
+    public void onFinishMovie(final DownloadEpisode downloadItem) {
+        doSyncWorckWithProggress(new WorkWraper() {
+            @Override
+            public void doJob() {
+                episideForProggresSend.remove(downloadItem.getEpisode_id());
+                sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_FINISH_MOVIE_DOWNLOADING, downloadItem));
+            }
+        });
     }
 
     @Override
-    public void onStartMovie(DownloadEpisode downloadItem) {
-        sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_START_MOVIE_DOWNLOADING, downloadItem));
+    public void onStartMovie(final DownloadEpisode downloadItem) {
+        doSyncWorckWithProggress(new WorkWraper() {
+            @Override
+            public void doJob() {
+                episideForProggresSend.remove(downloadItem.getEpisode_id());
+                sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_START_MOVIE_DOWNLOADING, downloadItem));
+            }
+        });
     }
 
     @Override
@@ -332,8 +389,14 @@ public class DownloaderService extends Service implements IMovieDownloadListener
     }
 
     @Override
-    public void onStatus(DownloadEpisode downloadItem) {
-        sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_STATUS, downloadItem));
+    public void onStatus(final DownloadEpisode downloadItem) {
+        doSyncWorckWithProggress(new WorkWraper() {
+            @Override
+            public void doJob() {
+                episideForProggresSend.remove(downloadItem.getEpisode_id());
+                sendBroadcast(IntentUtils.getIntentItem(Constants.ACTION_STATUS, downloadItem));
+            }
+        });
     }
 
     protected void onAllStatus(ArrayList<DownloadEpisode> episodes) {
